@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSessionClient } from "@/lib/supabase/session";
 
 export async function login(prevState, formData) {
@@ -92,3 +93,54 @@ export async function gantiPassword(prevState, formData) {
 
   return { success: true, message: "Password berhasil diganti." };
 }
+
+export async function tambahProduk(prevStateOrFormData, maybeFormData) {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : prevStateOrFormData;
+
+  let supabase;
+  try {
+    supabase = await createSessionClient();
+  } catch (err) {
+    throw new Error(err.message);
+  }
+
+  // 1. Periksa login di server
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error("Akses ditolak: Anda harus login sebagai admin.");
+  }
+
+  // 2. Ambil data form
+  const nama = formData.get("nama");
+  const hargaRaw = formData.get("harga");
+  const harga = parseInt(hargaRaw, 10);
+  const kategori = formData.get("kategori");
+  const foto_url = formData.get("foto_url");
+  const deskripsi = formData.get("deskripsi");
+
+  if (!nama || isNaN(harga)) {
+    throw new Error("Nama dan harga produk wajib diisi.");
+  }
+
+  // 3. Simpan ke database
+  const { error } = await supabase.from("produk").insert({
+    nama: String(nama).trim(),
+    harga,
+    kategori: kategori ? String(kategori).trim() : null,
+    foto_url: foto_url ? String(foto_url).trim() : null,
+    deskripsi: deskripsi ? String(deskripsi).trim() : null,
+  });
+
+  if (error) {
+    throw new Error(`Gagal menyimpan produk: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  redirect("/admin");
+}
+
