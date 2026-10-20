@@ -1,3 +1,4 @@
+// US-06: proteksi halaman admin dengan Supabase Auth
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
