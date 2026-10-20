@@ -207,4 +207,49 @@ export async function ubahProduk(idOrFormData, maybeFormData) {
   redirect("/admin");
 }
 
+export async function hapusProduk(idOrFormData, maybeFormData) {
+  let id;
+  if (maybeFormData instanceof FormData) {
+    id = idOrFormData;
+  } else if (idOrFormData instanceof FormData) {
+    id = idOrFormData.get("id");
+  } else {
+    id = idOrFormData;
+  }
+
+  if (!id) {
+    throw new Error("ID produk tidak valid.");
+  }
+
+  let supabase;
+  try {
+    supabase = await createSessionClient();
+  } catch (err) {
+    throw new Error(err.message);
+  }
+
+  // 1. Periksa login di server
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error("Akses ditolak: Anda harus login sebagai admin.");
+  }
+
+  // 2. Hapus produk dari database
+  const { error } = await supabase.from("produk").delete().eq("id", id);
+
+  if (error) {
+    throw new Error(`Gagal menghapus produk: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath(`/produk/${id}`);
+  revalidatePath("/");
+  redirect("/admin");
+}
+
+
 
