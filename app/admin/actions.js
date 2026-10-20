@@ -144,3 +144,67 @@ export async function tambahProduk(prevStateOrFormData, maybeFormData) {
   redirect("/admin");
 }
 
+export async function ubahProduk(idOrFormData, maybeFormData) {
+  let id;
+  let formData;
+
+  if (maybeFormData instanceof FormData) {
+    id = idOrFormData;
+    formData = maybeFormData;
+  } else {
+    formData = idOrFormData;
+    id = formData.get("id");
+  }
+
+  let supabase;
+  try {
+    supabase = await createSessionClient();
+  } catch (err) {
+    throw new Error(err.message);
+  }
+
+  // 1. Periksa login di server
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error("Akses ditolak: Anda harus login sebagai admin.");
+  }
+
+  // 2. Ambil data form
+  const nama = formData.get("nama");
+  const hargaRaw = formData.get("harga");
+  const harga = parseInt(hargaRaw, 10);
+  const kategori = formData.get("kategori");
+  const foto_url = formData.get("foto_url");
+  const deskripsi = formData.get("deskripsi");
+
+  if (!id || !nama || isNaN(harga)) {
+    throw new Error("ID, nama, dan harga produk wajib diisi.");
+  }
+
+  // 3. Simpan perubahan ke database
+  const { error } = await supabase
+    .from("produk")
+    .update({
+      nama: String(nama).trim(),
+      harga,
+      kategori: kategori ? String(kategori).trim() : null,
+      foto_url: foto_url ? String(foto_url).trim() : null,
+      deskripsi: deskripsi ? String(deskripsi).trim() : null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(`Gagal mengubah produk: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath(`/produk/${id}`);
+  revalidatePath("/");
+  redirect("/admin");
+}
+
+
